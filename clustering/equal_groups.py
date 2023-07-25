@@ -13,8 +13,17 @@ import numpy as np
 import scipy.sparse as sp
 
 from sklearn.base import BaseEstimator, ClusterMixin, TransformerMixin
-from sklearn.cluster import k_means_
-from sklearn.cluster import _k_means
+from sklearn.cluster import k_means
+from sklearn.cluster import kmeans_plusplus
+#from sklearn.cluster import k_means
+#from sklearn.cluster import k_means
+
+# Tell sklearn where to find joblib
+import sys
+import joblib
+sys.modules['sklearn.externals.joblib'] = joblib
+
+
 from sklearn.externals.joblib import Parallel
 from sklearn.externals.joblib import delayed
 from sklearn.metrics.pairwise import euclidean_distances
@@ -27,7 +36,6 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.utils.validation import FLOAT_DTYPES
 
 
-
 class EqualGroupsKMeans(BaseEstimator, ClusterMixin, TransformerMixin):
     """Equal Groups K-Means clustering
 
@@ -35,7 +43,7 @@ class EqualGroupsKMeans(BaseEstimator, ClusterMixin, TransformerMixin):
     located in `_labels_inertia_precompute_dense()` which follows the steps laid
     out in the Elki Same-size k-Means Variation tutorial.
 
-    https://elki-project.github.io/tutorial/same-size_k_means
+    https://elki-project.github.io/tutorial/same-sizek_means
 
     Please note that this implementation only works in scikit-learn 17.X as later
     versions having breaking changes to this implementation.
@@ -477,8 +485,8 @@ def _kmeans_single(X, n_clusters, x_squared_norms, max_iter=300,
 
     best_labels, best_inertia, best_centers = None, None, None
     # init
-    centers = k_means_._init_centroids(X, n_clusters, init, random_state=random_state,
-                              x_squared_norms=x_squared_norms)
+    # Changed to kmeans_plusplus to work with the arguments here, but may not be correct
+    centers = list(kmeans_plusplus(X, n_clusters, x_squared_norms=x_squared_norms, random_state=random_state))
     if verbose:
         print("Initialization complete")
 
@@ -498,10 +506,10 @@ def _kmeans_single(X, n_clusters, x_squared_norms, max_iter=300,
         sample_weight = np.asarray([1.0] * len(labels))
         # computation of the means is also called the M-step of EM
         if sp.issparse(X):
-            centers = _k_means._centers_sparse(X, sample_weight, labels, n_clusters,
+            centers = k_means._centers_sparse(X, sample_weight, labels, n_clusters,
                                                distances)
         else:
-            centers = _k_means._centers_dense(X, sample_weight, labels, n_clusters, distances)
+            centers = k_means._centers_dense(X, sample_weight, labels, n_clusters, distances)
 
         if verbose:
             print("Iteration %2d, inertia %.3f" % (i, inertia))
@@ -585,13 +593,13 @@ def _labels_inertia(X, x_squared_norms, centers,
         distances = np.zeros(shape=(0,), dtype=np.float64)
     # distances will be changed in-place
     if sp.issparse(X):
-        inertia = k_means_._k_means._assign_labels_csr(
+        inertia = k_means.k_means._assign_labels_csr(
             X, x_squared_norms, centers, labels, distances=distances)
     else:
         if precompute_distances:
             return _labels_inertia_precompute_dense(X, x_squared_norms,
                                                     centers, distances)
-        inertia = k_means_._k_means._assign_labels_array(
+        inertia = k_means.k_means._assign_labels_array(
             X, x_squared_norms, centers, labels, distances=distances)
     return labels, inertia
 
